@@ -1,0 +1,30 @@
+.Sidebar{
+    height: 100%;
+    width: 280px;
+    box-shadow: rgba(0, 0, 0, 0.24) 0px 3px 8px;
+    overflow: auto;
+}
+
+.sidebar_dropdown{
+    font-size: 18px;
+    text-align: start;
+    padding: 10px 0;
+    cursor: pointer;
+    z-index: 1;
+    letter-spacing: 2px;
+}
+
+.Mui_drop{
+    color: green;
+    padding: 5px;
+}
+
+.Mui_drop:hover{
+    background-color:white !important;
+}
+
+.sidebar_dropdown:hover{
+    background-color: whitesmoke;
+    padding: 0.4rem;
+    transition: 0.2s ease-in-out;
+}

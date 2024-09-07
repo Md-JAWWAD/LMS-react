@@ -1,0 +1,25 @@
+.Navbar{
+    height: 60px;
+    width: 100%;
+    background-color: green;
+    box-shadow: rgba(0, 0, 0, 0.24) 0px 3px 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+    text-transform:uppercase;
+    letter-spacing: 2px;
+    font-weight: 600;
+}
+
+.logo{
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    color: #fff;
+}
+
+.logOut{
+   cursor: pointer;
+}

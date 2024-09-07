@@ -1,0 +1,13 @@
+ .Input_field{
+    height: 45px;
+    width: 100%;
+    border: 2px solid #E5e4e4;
+    margin-top: 1rem;
+    padding: 0 20px;
+    outline: none;
+  }
+
+  .Input_field:focus{
+    border: 2px solid green;
+    color: green;
+  }
