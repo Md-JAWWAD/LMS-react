@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import LogoImg from '../assets/images/logo.jpg'
 import { Link, useNavigate } from 'react-router-dom'
 import { createUserWithEmailAndPassword } from 'firebase/auth'
-import { doc, setDoc } from 'firebase/firestore'  // ✅ Removed unused imports
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore'
 import { auth, db } from '../Components/FirebaseConfig/FirebaseConfig'
 
 const SignUpPage = () => {
@@ -10,71 +10,106 @@ const SignUpPage = () => {
   const [lastName, setLastName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [loading, setLoading] = useState(false) // ✅ Added loading state
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('') // ✅ Added error state
 
-  const navigate = useNavigate() // ✅ Fixed: removed empty string
+  const navigate = useNavigate()
 
-  const handleSubmitUser = async () => {
-    // ✅ Trim all inputs for validation
+  const handleSubmitUser = async (e) => {
+    e.preventDefault() // ✅ Prevent form default behavior
+    
+    // Clear previous errors
+    setError('')
+
+    // Trim all inputs
     const trimmedFirstName = firstName.trim()
     const trimmedLastName = lastName.trim()
     const trimmedEmail = email.trim()
     const trimmedPassword = password.trim()
 
-    // ✅ Validate all fields
+    // Validation
     if (!trimmedFirstName || !trimmedLastName || !trimmedEmail || !trimmedPassword) {
-      alert('Please fill in all fields')
-      return // ✅ Stop execution if validation fails
-    }
-
-    // ✅ Password strength validation (optional but recommended)
-    if (trimmedPassword.length < 6) {
-      alert('Password must be at least 6 characters')
+      setError('Please fill in all fields')
       return
     }
 
-    setLoading(true) // ✅ Show loading state
+    if (trimmedPassword.length < 6) {
+      setError('Password must be at least 6 characters')
+      return
+    }
+
+    setLoading(true)
 
     try {
-      // ✅ Create user with email and password
+      console.log('Attempting to create user with email:', trimmedEmail)
+      
+      // Step 1: Create user authentication
       const userCredential = await createUserWithEmailAndPassword(
-        auth, 
-        trimmedEmail, 
+        auth,
+        trimmedEmail,
         trimmedPassword
       )
       
+      console.log('User created successfully:', userCredential.user.uid)
+      
       const uID = userCredential.user.uid
       
-      // ✅ Store user info in Firestore
+      // Step 2: Store user data in Firestore
       const userInfo = {
         firstName: trimmedFirstName,
         lastName: trimmedLastName,
         email: trimmedEmail,
-        createdAt: new Date().toISOString(), // ✅ Added timestamp
-        uid: uID // ✅ Store uid for reference
+        createdAt: serverTimestamp(), // ✅ Use Firestore server timestamp
+        uid: uID,
+        role: 'student' // ✅ Add default role
       }
 
-      await setDoc(doc(db, 'users', uID), userInfo) // ✅ Changed collection name to 'users'
+      console.log('Attempting to save user data to Firestore...')
       
-      alert('Sign Up Successful!')
-      navigate('/login') // ✅ Navigate to login page instead of home
+      // ✅ Use setDoc with merge option for safety
+      await setDoc(doc(db, 'users', uID), userInfo, { merge: true })
+      
+      console.log('User data saved successfully!')
+      
+      // ✅ Show success message
+      alert('Account created successfully! Please login.')
+      
+      // ✅ Navigate to login
+      navigate('/login')
       
     } catch (error) {
-      console.error('Signup error:', error)
+      console.error('Signup error details:', error)
+      console.error('Error code:', error.code)
+      console.error('Error message:', error.message)
       
-      // ✅ User-friendly error messages
+      // ✅ Handle specific Firebase errors
       let errorMessage = 'Signup failed. Please try again.'
-      if (error.code === 'auth/email-already-in-use') {
-        errorMessage = 'This email is already registered. Please login instead.'
-      } else if (error.code === 'auth/weak-password') {
-        errorMessage = 'Password is too weak. Use at least 6 characters.'
-      } else if (error.code === 'auth/invalid-email') {
-        errorMessage = 'Invalid email address. Please check and try again.'
+      
+      switch (error.code) {
+        case 'auth/email-already-in-use':
+          errorMessage = 'This email is already registered. Please login instead.'
+          break
+        case 'auth/weak-password':
+          errorMessage = 'Password is too weak. Use at least 6 characters.'
+          break
+        case 'auth/invalid-email':
+          errorMessage = 'Invalid email address. Please check and try again.'
+          break
+        case 'auth/network-request-failed':
+          errorMessage = 'Network error. Please check your internet connection.'
+          break
+        case 'permission-denied':
+          errorMessage = 'Firebase permission error. Please contact support.'
+          console.error('🔴 PERMISSION DENIED: Check Firestore Security Rules!')
+          break
+        default:
+          errorMessage = `Error: ${error.message}`
       }
-      alert(errorMessage)
+      
+      setError(errorMessage)
       
     } finally {
-      setLoading(false) // ✅ Reset loading state
+      setLoading(false)
     }
   }
 
@@ -99,70 +134,91 @@ const SignUpPage = () => {
       <div className='Auth-form'>
         <p className='Form-heading'>SIGN UP</p>
         
-        <p>
-          <label htmlFor="firstName">First Name:</label> <br />
-          <input 
-            id="firstName" // ✅ Added id for accessibility
-            value={firstName} 
-            onChange={(e) => setFirstName(e.target.value)} 
-            type="text" 
-            placeholder='Enter your first name' 
-            required
-            disabled={loading} // ✅ Disable during loading
-          />
-        </p>
+        {/* ✅ Show error message */}
+        {error && (
+          <div style={{
+            backgroundColor: '#ffebee',
+            color: '#c62828',
+            padding: '10px',
+            borderRadius: '4px',
+            marginBottom: '10px',
+            textAlign: 'center'
+          }}>
+            {error}
+          </div>
+        )}
         
-        <p>
-          <label htmlFor="lastName">Last Name:</label> <br />
-          <input 
-            id="lastName"
-            value={lastName} 
-            onChange={(e) => setLastName(e.target.value)} 
-            type="text" 
-            placeholder='Enter your last name' 
-            required
+        <form onSubmit={handleSubmitUser}> {/* ✅ Added form */}
+          <p>
+            <label htmlFor="firstName">First Name:</label> <br />
+            <input 
+              id="firstName"
+              value={firstName} 
+              onChange={(e) => setFirstName(e.target.value)} 
+              type="text" 
+              placeholder='Enter your first name' 
+              required
+              disabled={loading}
+            />
+          </p>
+          
+          <p>
+            <label htmlFor="lastName">Last Name:</label> <br />
+            <input 
+              id="lastName"
+              value={lastName} 
+              onChange={(e) => setLastName(e.target.value)} 
+              type="text" 
+              placeholder='Enter your last name' 
+              required
+              disabled={loading}
+            />
+          </p>
+          
+          <p>
+            <label htmlFor="email">Email:</label> <br />
+            <input 
+              id="email"
+              value={email} 
+              onChange={(e) => setEmail(e.target.value)} 
+              type="email" 
+              placeholder='Enter your email' 
+              required
+              disabled={loading}
+            />
+          </p>
+          
+          <p>
+            <label htmlFor="password">Password:</label> <br />
+            <input 
+              id="password"
+              value={password} 
+              onChange={(e) => setPassword(e.target.value)} 
+              type="password" 
+              placeholder='Enter your password (min 6 characters)' 
+              required
+              disabled={loading}
+              minLength="6"
+            />
+          </p>
+          
+          <button 
+            type="submit" // ✅ Changed to type="submit"
+            className='Submit-btn' 
             disabled={loading}
-          />
-        </p>
-        
-        <p>
-          <label htmlFor="email">Email:</label> <br />
-          <input 
-            id="email"
-            value={email} 
-            onChange={(e) => setEmail(e.target.value)} 
-            type="email" 
-            placeholder='Enter your email' 
-            required
-            disabled={loading}
-          />
-        </p>
-        
-        <p>
-          <label htmlFor="password">Password:</label> <br />
-          <input 
-            id="password"
-            value={password} 
-            onChange={(e) => setPassword(e.target.value)} 
-            type="password" 
-            placeholder='Enter your password' 
-            required
-            disabled={loading}
-          />
-        </p>
-        
-        <button 
-          className='Submit-btn' 
-          onClick={handleSubmitUser}
-          disabled={loading} // ✅ Disable during loading
-        >
-          {loading ? 'Signing Up...' : 'Sign Up'} {/* ✅ Show loading text */}
-        </button>
+            style={{
+              opacity: loading ? 0.7 : 1,
+              cursor: loading ? 'not-allowed' : 'pointer'
+            }}
+          >
+            {loading ? 'Signing Up...' : 'Sign Up'}
+          </button>
+        </form>
         
         <p style={{textAlign: 'center'}}>OR</p>
         
         <Link 
-          to='/login'  // ✅ Changed from '/' to '/login'
+          to='/login'
           style={{
             textAlign: 'center', 
             color: '#016B1F', 
@@ -170,7 +226,7 @@ const SignUpPage = () => {
             backgroundColor: 'lightgreen', 
             padding: '0.6rem', 
             borderRadius: '1rem',
-            display: 'block' // ✅ Better styling
+            display: 'block'
           }}
         >
           Already have an account? Login
